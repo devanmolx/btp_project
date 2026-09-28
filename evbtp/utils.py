@@ -28,18 +28,19 @@ def fix_solution(x, lb, ub, max_bus):
     This is the block of MATLAB lines repeated after every position update:
         x = max(lb,min(ub,x)); x(var_type==1)=round(...); x(1:2)/x(5:6) clamp
     """
-    from .config import VAR_IS_INT
+    from .config import bus_slices, var_is_int
     x = np.minimum(ub, np.maximum(lb, x))
-    x = np.where(VAR_IS_INT, mround(x), x)
-    for sl in (slice(0, 2), slice(4, 6)):
+    x = np.where(var_is_int(len(lb)), mround(x), x)
+    for sl in bus_slices(len(lb)):
         x[sl] = np.maximum(2, np.minimum(max_bus, x[sl]))
     return x
 
 
 def random_population(rng, n, lb, ub, max_bus):
-    from .config import VAR_IS_INT
+    from .config import bus_slices, var_is_int
+    is_int = var_is_int(len(lb))
     pop = lb + rng.random((n, len(lb))) * (ub - lb)
-    pop[:, VAR_IS_INT] = mround(pop[:, VAR_IS_INT])
-    for sl in (slice(0, 2), slice(4, 6)):
+    pop[:, is_int] = mround(pop[:, is_int])
+    for sl in bus_slices(len(lb)):
         pop[:, sl] = np.maximum(2, np.minimum(max_bus, pop[:, sl]))
     return pop

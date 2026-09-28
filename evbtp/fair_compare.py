@@ -55,7 +55,7 @@ def fair_compare(problem, nofe_budget=20000, n_runs=30, seed_base=1000, verbose=
             print("(use >= 5 runs for a rank-sum test; 30 is the usual choice for a write-up)")
 
     out = dict(best_fit=best, nofe_used=nofe, conv_all={a: [t.tolist() for t in traces[a]] for a in ALGOS},
-               NOFE_BUDGET=nofe_budget, N_RUNS=n_runs, system=problem.system_id)
+               NOFE_BUDGET=nofe_budget, N_RUNS=n_runs, system=problem.system_id, statcom=problem.statcom)
     return out
 
 

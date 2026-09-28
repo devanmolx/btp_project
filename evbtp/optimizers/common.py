@@ -28,6 +28,7 @@ class OptResult:
     trace: np.ndarray = None            # (n, 2) [NOFE, best-so-far] per iteration (for NOFE-aligned plots)
     F_history: np.ndarray = None        # (iters, 4) F1..F4 of gbest per iteration (GA-PSO only)
     system: int = 33
+    statcom: bool = False               # True: 12-variable layout with two DSTATCOMs appended
 
     def to_dict(self):
         d = asdict(self)
@@ -50,7 +51,8 @@ def finalize(algo, problem, w, gbest, gbest_fit, ev, t0, conv, mean_hist, trace,
                     F1=F1, F2=F2, F3=F3, F4=F4, w_fixed=np.asarray(w, float),
                     convergence=np.asarray(conv, float), mean_history=np.asarray(mean_hist, float),
                     trace=np.asarray(trace, float).reshape(-1, 2),
-                    F_history=None if F_hist is None else np.asarray(F_hist, float), system=problem.system_id)
+                    F_history=None if F_hist is None else np.asarray(F_hist, float), system=problem.system_id,
+                    statcom=problem.statcom)
     if verbose:
         print_result(res)
     return res
@@ -58,9 +60,11 @@ def finalize(algo, problem, w, gbest, gbest_fit, ev, t0, conv, mean_hist, trace,
 
 def print_result(r: OptResult):
     g = r.gbest
-    print("\n" + "=" * 45 + f"\n  COMPLETE - {r.algo} India ({r.system}-bus)\n" + "=" * 45)
+    print("\n" + "=" * 45 + f"\n  COMPLETE - {r.algo} India ({r.system}-bus{', DSTATCOM' if r.statcom else ''})\n" + "=" * 45)
     print("Weights [tau,beta,gamma,alpha]: [" + " ".join(f"{v:.4f}" for v in r.w_fixed) + "]")
     print(f"Best Fitness: {r.gbest_fit:.6f} | NOFE: {r.NOFE} | Time: {r.time:.2f} s")
     print(f"RES 1: Bus {int(g[0])}, {g[2] * 1000:.1f} kW | RES 2: Bus {int(g[1])}, {g[3] * 1000:.1f} kW")
     print(f"CS 1 : Bus {int(g[4])}, {g[6] * 1000:.1f} kW | CS 2 : Bus {int(g[5])}, {g[7] * 1000:.1f} kW")
+    if r.statcom:
+        print(f"SC 1 : Bus {int(g[8])}, {g[10] * 1000:.0f} kVAr | SC 2 : Bus {int(g[9])}, {g[11] * 1000:.0f} kVAr")
     print(f"\nF1={r.F1:.4f} MWh/day  F2={r.F2:.4f} pu (24h sum)  F3=Rs.{r.F3:.0f}  F4=Rs.{r.F4:.2f}")

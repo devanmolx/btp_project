@@ -32,11 +32,13 @@ def plot_algo_diagnostics(res, max_bus, out=None):
     for bi, ci, c in ((0, 2, "#33cc33"), (1, 3, "#33cc33"), (4, 6, "#3366e6"), (5, 7, "#3366e6")):
         cap[int(g[bi]) - 1] = g[ci] * 1000; colors[int(g[bi]) - 1] = c
     ax[2].bar(np.arange(1, max_bus + 1), cap, color=colors)
+    if len(g) > 8:                                        # DSTATCOM (kVAr) drawn as a narrow orange bar on its bus
+        ax[2].bar([int(g[8]), int(g[9])], [g[10] * 1000, g[11] * 1000], width=0.35, color="#ff8c00")
     ax[2].axhline(1000, color="k", ls="--", lw=1); ax[2].text(1, 1010, "RES max = 1000 kW", fontsize=8)
     ax[2].axhline(700, color="r", ls=":", lw=1); ax[2].text(1, 710, "CS max = 700 kW", fontsize=8)
     ax[2].set(xlabel="Bus Number", ylabel="Installed Capacity (kW)", ylim=(0, 1100),
-              title="Optimized Siting Matrix (India)\nGreen = RES | Blue = EV Station"); ax[2].grid(alpha=.3)
-    fig.suptitle(f"{res.algo} India ({max_bus}-bus) | Weights [" + " ".join(f"{v:.3f}" for v in res.w_fixed) + "]")
+              title="Optimized Siting Matrix (India)\nGreen = RES | Blue = EV Station" + (" | Orange = DSTATCOM (kVAr)" if len(g) > 8 else "")); ax[2].grid(alpha=.3)
+    fig.suptitle(f"{res.algo} India ({max_bus}-bus{', DSTATCOM' if len(g) > 8 else ''}) | Weights [" + " ".join(f"{v:.3f}" for v in res.w_fixed) + "]")
     fig.tight_layout()
     return _save(fig, out)
 

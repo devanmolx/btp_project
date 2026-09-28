@@ -185,3 +185,48 @@ def test_compute_all_methods():
     assert np.allclose(w_all["ahp_critic"], p / p.sum())
     assert np.allclose(w_all["base_paper"], [0.3, 0.3, 0.3, 0.1])
     assert np.allclose(compute_all(F, lo, hi, verbose=False)[0]["base_paper"], [0.4, 0.3, 0.2, 0.1])   # config default
+
+
+# ---------------------------------------------------------------- DSTATCOM extension
+X8 = np.array([10, 20, 0.3, 0.3, 5, 25, 0.5, 0.5], float)
+
+
+def test_statcom_layout_extends_base_and_zero_rating_is_neutral():
+    lb, ub = config.bounds(33, statcom=True)
+    assert len(lb) == config.N_VAR_STATCOM == 12
+    assert np.array_equal(lb[:8], config.bounds(33)[0]) and np.array_equal(ub[:8], config.bounds(33)[1])
+    base = Problem(quiet=True)
+    sc = Problem(quiet=True, statcom=True)
+    x12 = np.concatenate([X8, [12, 30, 0.0, 0.0]])
+    assert sc.detailed(x12)[1:] == pytest.approx(base.detailed(X8)[1:], rel=1e-12)   # 0 kVAr == no DSTATCOM
+
+
+def test_statcom_reduces_loss_and_lifts_voltage():
+    sc = Problem(quiet=True, statcom=True)
+    x12 = np.concatenate([X8, [25, 30, 1.0, 1.0]])
+    with_sc, without = sc.metrics(x12), sc.metrics(x12, without_statcom=True)
+    assert with_sc["P_loss_kW"] < without["P_loss_kW"] and with_sc["Q_loss_kVAr"] < without["Q_loss_kVAr"]
+    assert with_sc["Vmin"] > without["Vmin"] and with_sc["VSI_min"] > without["VSI_min"]
+    assert sc.detailed(x12)[3] != sc.detailed(np.concatenate([X8, [25, 30, 0, 0]]))[3]   # capex reaches F3
+
+
+def test_statcom_repair_and_colocation():
+    sc = Problem(quiet=True, statcom=True)
+    r = sc.repair_solution(np.concatenate([X8, [7, 7, 0.4, 0.4]]))
+    assert len(r) == 12 and r[8] != r[9]                          # the two DSTATCOMs are kept apart
+    r2 = sc.repair_solution(np.concatenate([X8, [10, 20, 0.4, 0.4]]))
+    assert (r2[8], r2[9]) == (10, 20)                             # but may share a bus with RES (as in the paper)
+    assert sc.objective(np.concatenate([X8, [7, 7, 0.4, 0.4]])) == sc.objective(r)
+
+
+@pytest.mark.parametrize("fn", [run_gapso, run_hoa, run_mpa])
+def test_optimizers_handle_statcom_problem(fn):
+    pr = Problem(quiet=True, statcom=True)
+    kw = dict(max_iter=None, nofe_budget=800, seed=3, verbose=False)
+    if fn is run_gapso:
+        kw["track_details"] = False
+    r = fn(pr, **kw)
+    lb, ub = config.bounds(33, statcom=True)
+    assert len(r.gbest) == 12 and r.statcom
+    assert (r.gbest >= lb - 1e-9).all() and (r.gbest <= ub + 1e-9).all()
+    assert r.gbest_fit == pytest.approx(pr.objective(r.gbest))

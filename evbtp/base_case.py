@@ -12,7 +12,7 @@ from .results_io import load_result, dump_json, KEYS
 from .utils import mround
 
 
-def eval_scenario(pr: Problem, use_RES, use_EV, cs_buses=None, x=None):
+def eval_scenario(pr: Problem, use_RES, use_EV, cs_buses=None, x=None, use_statcom=True):
     P = pr._P_base.copy(); Q = pr._Q_base
     e, p = pr.ev, pr.prof
     if use_EV:
@@ -29,6 +29,8 @@ def eval_scenario(pr: Problem, use_RES, use_EV, cs_buses=None, x=None):
         r1, r2 = int(mround(x[0])), int(mround(x[1]))
         P[:, r1 - 1] -= x[2] * 1e6 * pr._gen_pu
         P[:, r2 - 1] -= x[3] * 1e6 * pr._gen_pu
+    if pr.statcom and use_statcom and use_RES and x is not None:
+        Q = Q - pr.statcom_q(*pr.decode_statcom(x))
     V, loss = pr.lf.solve(P, Q)
     vm = np.abs(V)
     F1 = float(np.sum(loss / 1e6)); F2 = float(np.sum(np.abs(1 - vm[:, 1:])))
@@ -40,12 +42,13 @@ def eval_scenario(pr: Problem, use_RES, use_EV, cs_buses=None, x=None):
 def run_base_case(pr: Problem, results_dir, verbose=True):
     A = eval_scenario(pr, False, False)
     ref = load_result("gapso", results_dir, pr.system_id)
+    ref = load_result("gapso", results_dir, pr.system_id, pr.statcom)
     cs = [int(round(ref.gbest[4])), int(round(ref.gbest[5]))] if ref else [2, int(round(pr.max_bus / 2))]
     B = eval_scenario(pr, False, True, cs_buses=cs)
 
     algos, sols = [], []
     for k in ("gapso", "hoa", "mpa"):
-        r = load_result(k, results_dir, pr.system_id)
+        r = load_result(k, results_dir, pr.system_id, pr.statcom)
         if r is not None:
             algos.append(r.algo); sols.append(r.gbest)
     if not algos:
@@ -54,7 +57,12 @@ def run_base_case(pr: Problem, results_dir, verbose=True):
     for x in sols:
         _, f1, f2, f3, f4 = pr.detailed(x)
         s = eval_scenario(pr, True, True, x=x)
-        s.update(F1=f1, F2=f2, F3=f3, F4=f4); C.append(s)
+        s.update(F1=f1, F2=f2, F3=f3, F4=f4)
+        if pr.statcom:                                   # same RES/CS layout with the DSTATCOMs removed = their benefit
+            s["Vprofile_noSC"] = eval_scenario(pr, True, True, x=x, use_statcom=False)["Vprofile"]
+            s["metrics"], s["metrics_noSC"] = pr.metrics(x), pr.metrics(x, without_statcom=True)
+            s["F_noSC"] = list(pr._evaluate(np.where(np.arange(len(x)) >= 10, 0.0, x), pr.w_fixed, 0.05)[1:])
+        C.append(s)
 
     if verbose:
         print("=" * 53 + f"\n  BASE CASE ANALYSIS -- IEEE {pr.max_bus}-bus (India)\n" + "=" * 53 + "\n")
@@ -73,6 +81,18 @@ def run_base_case(pr: Problem, results_dir, verbose=True):
         print(f"Loss increase   : {(B['F1'] - A['F1']) / A['F1'] * 100:.2f}%")
         print(f"Vmin drops from : {A['Vmin']:.4f} to {B['Vmin']:.4f} pu")
         print("This quantifies the problem that RES allocation is solving.")
+        if pr.statcom:
+            print("\n" + "=" * 66 + "\n  DSTATCOM BENEFIT  (same RES/CS layout, DSTATCOMs removed -> installed)\n" + "=" * 66)
+            for n, c, x in zip(algos, C, sols):
+                print(f"\n{n}: DSTATCOM 1 bus {int(x[8])} {x[10] * 1000:.0f} kVAr | DSTATCOM 2 bus {int(x[9])} {x[11] * 1000:.0f} kVAr")
+                print(f"  {'Metric':<26} {'without':<12} {'with':<12} {'change':<10}")
+                rows = (("Mean P loss (kW)", "P_loss_kW", ".2f"), ("Mean Q loss (kVAr)", "Q_loss_kVAr", ".2f"),
+                        ("VDI (mean sum|1-V|)", "VDI", ".4f"), ("Min VSI", "VSI_min", ".4f"), ("Vmin (pu)", "Vmin", ".4f"))
+                for lab, k, f in rows:
+                    a0, a1 = c["metrics_noSC"][k], c["metrics"][k]
+                    print(f"  {lab:<26} {a0:<12{f}} {a1:<12{f}} {(a1 - a0) / abs(a0) * 100:+.1f}%")
+                f0, f1 = c["F_noSC"], [c["F1"], c["F2"], c["F3"], c["F4"]]
+                print(f"  {'F3 daily cost (Rs)':<26} {f0[2]:<12.0f} {f1[2]:<12.0f} {(f1[2] - f0[2]) / abs(f0[2]) * 100:+.1f}%   (incl. DSTATCOM capex)")
 
-    dump_json(dict(A=A, B=B, C=C, algos=algos, MAX_BUS=pr.max_bus), f"{results_dir}/base_case_{pr.system_id}bus_results.json")
+    dump_json(dict(A=A, B=B, C=C, algos=algos, MAX_BUS=pr.max_bus), f"{results_dir}/base_case_{pr.tag}_results.json")
     return A, B, C, algos

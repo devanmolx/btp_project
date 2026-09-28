@@ -12,7 +12,7 @@ from .results_io import load_result, dump_json
 
 
 def run_loss_priority(pr: Problem, results_dir, verbose=True):
-    ref = load_result("gapso", results_dir, pr.system_id)
+    ref = load_result("gapso", results_dir, pr.system_id, pr.statcom)
     if ref is None:
         raise FileNotFoundError("GA-PSO results not found. Run `python -m evbtp optimize gapso` first.")
     w, x_base = ref.w_fixed, ref.gbest
@@ -31,5 +31,5 @@ def run_loss_priority(pr: Problem, results_dir, verbose=True):
         print(f"\nTrade-off: Scenario B installs {(x_loss[2] + x_loss[3]) - (x_base[2] + x_base[3]):.2f} MW more RES")
         print("NOTE: the RES hosting-factor cap (35% of load) is a soft penalty in F; B may violate it.")
     out = dict(x_base=x_base, x_loss=x_loss, F_bal=[F1b, F2b, F3b, F4b], F_loss=[F1l, F2l, F3l, F4l])
-    dump_json(out, f"{results_dir}/loss_priority_{pr.system_id}bus.json")
+    dump_json(out, f"{results_dir}/loss_priority_{pr.tag}.json")
     return out

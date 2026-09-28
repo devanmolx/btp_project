@@ -17,6 +17,7 @@ class RadialLoadFlow:
     def __init__(self, FB, TB, R, X, nb, vbase=VBASE_V, tol=1e-6, max_iter=100):
         FB = np.asarray(FB, int); TB = np.asarray(TB, int)
         nl = len(FB)
+        self.X = np.asarray(X, float)
         self.nb, self.nl, self.R, self.vbase, self.tol, self.max_iter = nb, nl, np.asarray(R, float), vbase, tol, max_iter
 
         # BIBC: bus-injection -> branch-current (same construction as the .m file)
@@ -41,8 +42,9 @@ class RadialLoadFlow:
         self.Path_T = np.ascontiguousarray(Path.T)              # (nl, nb)
         self.Zc = (np.asarray(R, float) + 1j * np.asarray(X, float)) / vbase
 
-    def solve(self, P, Q):
-        """P, Q: arrays (T, nb) in W / VAr.  Returns V (T, nb) complex [pu] and P_loss (T,) [W]."""
+    def solve(self, P, Q, full=False):
+        """P, Q: arrays (T, nb) in W / VAr.  Returns V (T, nb) complex [pu] and P_loss (T,) [W].
+        With full=True returns (V, P_loss, Q_loss [VAr], I_branch (T, nl) [A]) for diagnostics."""
         P = np.atleast_2d(P); Q = np.atleast_2d(Q)
         T = P.shape[0]
         S = P + 1j * Q
@@ -61,4 +63,6 @@ class RadialLoadFlow:
             if active.size == 0:
                 break
         P_loss = np.sum(np.abs(I_branch) ** 2 * self.R, axis=1)
+        if full:
+            return V, P_loss, np.sum(np.abs(I_branch) ** 2 * self.X, axis=1), I_branch
         return V, P_loss

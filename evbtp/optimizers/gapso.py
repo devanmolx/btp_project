@@ -12,7 +12,7 @@ no redundant full-population re-evaluation.
 """
 import time
 import numpy as np
-from ..config import CAP_IDX, N_VAR, VAR_IS_INT
+from ..config import cap_idx, var_is_int
 from ..utils import fix_solution, make_rng, mround, random_population
 from .common import Evaluator, finalize
 
@@ -22,6 +22,8 @@ def run_gapso(problem, w=None, *, pop_size=50, max_iter=200, nofe_budget=None, s
     rng = make_rng(seed)
     w = problem.w_fixed if w is None else np.asarray(w, float)
     lb, ub, mb = problem.lb, problem.ub, problem.max_bus
+    N_VAR = len(lb)                                   # 8, or 12 with DSTATCOM
+    VAR_IS_INT, CAP_IDX = var_is_int(N_VAR), cap_idx(N_VAR)
     budget = np.inf if nofe_budget is None else nofe_budget
     iter_cap = np.inf if max_iter is None else max_iter
     ev = Evaluator(problem, w)

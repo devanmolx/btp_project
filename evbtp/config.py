@@ -6,6 +6,11 @@ Decision vector (8 variables, same layout as MATLAB but 0-based positions):
     x[2], x[3]  RES capacity 1, 2     (MW, 0.01..1.0)
     x[4], x[5]  charging-station bus 1, 2
     x[6], x[7]  charging-station capacity 1, 2  (MW, 0.05..0.7)
+
+Optional DSTATCOM extension (`--statcom`, Problem(statcom=True)) appends four variables:
+    x[8], x[9]  DSTATCOM bus 1, 2       (integer, 2..MAX_BUS; may coincide with a RES/CS bus)
+    x[10], x[11] DSTATCOM rating 1, 2   (MVAr, 0..1.0)
+The first eight positions are unchanged, so the base problem is exactly the MATLAB one.
 """
 from pathlib import Path
 import numpy as np
@@ -20,6 +25,9 @@ CAP_IDX = (2, 3, 6, 7)          # positions of the four capacity variables
 
 RES_CAP_MIN, RES_CAP_MAX = 0.01, 1.0     # MW per unit (net-metering ceiling)
 CS_CAP_MIN,  CS_CAP_MAX  = 0.05, 0.7     # MW per unit
+SC_CAP_MIN,  SC_CAP_MAX  = 0.0, 1.0      # MVAr per DSTATCOM (0 = the optimiser may decline a unit)
+
+N_VAR_STATCOM = 12
 
 DEFAULT_WEIGHTS = (0.25, 0.25, 0.25, 0.25)
 ALPHA_FIXED = 0.05                        # fixed F4 weight for 'markov' and 'critic_f4fixed'
@@ -51,9 +59,32 @@ def get_max_bus(system: int = SYSTEM_CHOICE) -> int:
     return int(system)
 
 
-def bounds(system: int = SYSTEM_CHOICE):
-    """(lb, ub) arrays for the 8 decision variables."""
+def case_tag(system: int = SYSTEM_CHOICE, statcom: bool = False) -> str:
+    """File-name tag: '33bus', or '33bus_statcom' for the DSTATCOM problem (keeps the two apart on disk)."""
+    return f"{get_max_bus(system)}bus" + ("_statcom" if statcom else "")
+
+
+def var_is_int(n_var: int) -> np.ndarray:
+    """Integer-variable mask for an 8- (base) or 12-variable (DSTATCOM) decision vector."""
+    return np.array([1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0][:n_var], dtype=bool)
+
+
+def bus_slices(n_var: int):
+    """Slices of the decision vector that hold bus numbers."""
+    return (slice(0, 2), slice(4, 6)) + ((slice(8, 10),) if n_var > N_VAR else ())
+
+
+def cap_idx(n_var: int):
+    """Positions of the capacity variables."""
+    return CAP_IDX + ((10, 11) if n_var > N_VAR else ())
+
+
+def bounds(system: int = SYSTEM_CHOICE, statcom: bool = False):
+    """(lb, ub) arrays for the decision variables (8, or 12 with DSTATCOM)."""
     mb = get_max_bus(system)
     lb = np.array([2, 2, RES_CAP_MIN, RES_CAP_MIN, 2, 2, CS_CAP_MIN, CS_CAP_MIN], float)
     ub = np.array([mb, mb, RES_CAP_MAX, RES_CAP_MAX, mb, mb, CS_CAP_MAX, CS_CAP_MAX], float)
+    if statcom:
+        lb = np.concatenate([lb, [2, 2, SC_CAP_MIN, SC_CAP_MIN]])
+        ub = np.concatenate([ub, [mb, mb, SC_CAP_MAX, SC_CAP_MAX]])
     return lb, ub

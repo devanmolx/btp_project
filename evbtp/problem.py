@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 
 from . import config
-from .config import DEFAULT_WEIGHTS, RES_CAP_MAX, RES_CAP_MIN, CS_CAP_MAX, CS_CAP_MIN
+from .config import DEFAULT_WEIGHTS, RES_CAP_MAX, RES_CAP_MIN, CS_CAP_MAX, CS_CAP_MIN, SC_CAP_MAX, SC_CAP_MIN
 from .ev_model import EVData, load_matlab_ev_data
 from .loadflow import RadialLoadFlow
 from .profiles import Profiles, build_profiles
@@ -26,6 +26,8 @@ RES_CAPEX_PER_KW = 45000.0     # Rs/kW
 CS_CAPEX_PER_KW = 30000.0      # Rs/kW
 DISCOUNT_RATE = 0.09
 N_RES_YEARS, N_CS_YEARS = 20, 10
+SC_CAPEX_PER_KVAR = 4200.0     # Rs/kVAr  (~US$50/kVAr, the DSTATCOM cost used by Abdelaziz et al., Sci Rep 2024)
+N_SC_YEARS = 10                # the paper annualises over 1 year; a 10-year power-electronics life is used here
 DOD = 0.8
 FEAS_PENALTY_SLOPE = 1.2
 REG_WEIGHT_CS = 0.05
@@ -82,31 +84,34 @@ class Calibration:
         return {k: getattr(self, k) for k in _PLACEHOLDER_BASES}
 
 
-def calibration_path(results_dir, system):
+def calibration_path(results_dir, system, statcom=False):
     from pathlib import Path
-    return Path(results_dir) / f"calibration_{system}bus.npz"
+    return Path(results_dir) / f"calibration_{config.case_tag(system, statcom)}.npz"
 
 
 class Problem:
     def __init__(self, system=config.SYSTEM_CHOICE, ev: EVData = None, profiles: Profiles = None,
-                 calibration: Calibration = None, results_dir=config.DEFAULT_RESULTS_DIR, quiet=False):
+                 calibration: Calibration = None, results_dir=config.DEFAULT_RESULTS_DIR, quiet=False,
+                 statcom=False):
         self.system_id = config.get_max_bus(system)
+        self.statcom = bool(statcom)                     # optional 2-unit DSTATCOM (12-variable problem)
+        self.tag = config.case_tag(system, self.statcom)
         self.sys: SystemData = load_system(system)
         self.max_bus = self.sys.max_bus
         self.prof = profiles or build_profiles()
         self.ev = ev or load_matlab_ev_data()
         self.lf = RadialLoadFlow(self.sys.FB, self.sys.TB, self.sys.R, self.sys.X, self.sys.nb)
-        self.lb, self.ub = config.bounds(system)
+        self.lb, self.ub = config.bounds(system, self.statcom)
         self.results_dir = results_dir
 
         if calibration is None:
-            p = calibration_path(results_dir, self.system_id)
+            p = calibration_path(results_dir, self.system_id, self.statcom)
             if p.exists():
                 calibration = Calibration.load(p)
         self.calibration = calibration
         if calibration is None:
             if not quiet:
-                warnings.warn(f"No calibration file for the {self.system_id}-bus system -- using placeholder "
+                warnings.warn(f"No calibration file for the {self.tag} case -- using placeholder "
                               "normalisation bases. Run `python -m evbtp calibrate` first.")
             self._bases = dict(_PLACEHOLDER_BASES)
             self.w_fixed = np.array(DEFAULT_WEIGHTS)
@@ -126,6 +131,7 @@ class Problem:
         self._EV_peak = e.P_EV_hourly.max(axis=0)
         self._daily_capex_res_per_MW = _crf(DISCOUNT_RATE, N_RES_YEARS) * RES_CAPEX_PER_KW * 1000 / 365
         self._daily_capex_cs_per_MW = _crf(DISCOUNT_RATE, N_CS_YEARS) * CS_CAPEX_PER_KW * 1000 / 365
+        self._daily_capex_sc_per_MVAr = _crf(DISCOUNT_RATE, N_SC_YEARS) * SC_CAPEX_PER_KVAR * 1000 / 365
         self.nofe = 0                                   # running evaluation counter (optional use)
 
     # ------------------------------------------------------------------ decoding / repair
@@ -136,6 +142,22 @@ class Problem:
         caps = (max(RES_CAP_MIN, min(RES_CAP_MAX, x[2])), max(RES_CAP_MIN, min(RES_CAP_MAX, x[3])),
                 max(CS_CAP_MIN, min(CS_CAP_MAX, x[6])), max(CS_CAP_MIN, min(CS_CAP_MAX, x[7])))
         return (*self._repair_bus_collisions(b), *caps)   # rb1, rb2, cb1, cb2, rc1, rc2, cc1, cc2
+
+    def decode_statcom(self, x):
+        """(sb1, sb2, qc1, qc2): DSTATCOM buses (distinct from each other, may share a RES/CS bus) and MVAr."""
+        mb = self.max_bus
+        x = np.asarray(x, float)
+        b = [int(max(2, min(mb, mround(x[i])))) for i in (8, 9)]
+        q = (max(SC_CAP_MIN, min(SC_CAP_MAX, x[10])), max(SC_CAP_MIN, min(SC_CAP_MAX, x[11])))
+        return (*self._repair_bus_collisions(b), *q)
+
+    def statcom_q(self, sb1, sb2, qc1, qc2):
+        """(24, nb) reactive injection [VAr] of the two DSTATCOMs.  Rating is reached at the load peak and the
+        output follows the load shape (a fixed rated output would over-compensate -> overvoltage at night)."""
+        Qs = np.zeros_like(self._Q_base)
+        Qs[:, sb1 - 1] += qc1 * 1e6 * self._ratio
+        Qs[:, sb2 - 1] += qc2 * 1e6 * self._ratio
+        return Qs
 
     def _repair_bus_collisions(self, buses):
         """Reassign any colliding bus to the nearest free bus in [2, MAX_BUS] (tries +d before -d)."""
@@ -157,17 +179,19 @@ class Problem:
     def repair_solution(self, x):
         """Same clamp + collision repair the objective applies; returns the layout actually evaluated."""
         rb1, rb2, cb1, cb2, rc1, rc2, cc1, cc2 = self.decode(x)
-        return np.array([rb1, rb2, rc1, rc2, cb1, cb2, cc1, cc2], float)
+        out = [rb1, rb2, rc1, rc2, cb1, cb2, cc1, cc2]
+        if self.statcom:
+            sb1, sb2, qc1, qc2 = self.decode_statcom(x)
+            out += [sb1, sb2, qc1, qc2]
+        return np.array(out, float)
 
     # ------------------------------------------------------------------ objective
-    def _evaluate(self, x, w, reg_weight_RES):
-        tau, beta, gamma, alpha = w
-        rb1, rb2, cb1, cb2, rc1, rc2, cc1, cc2 = self.decode(x)
-        p, e = self.prof, self.ev
+    def _network(self, x):
+        """Decode x and build the 24-h nodal injections.  Returns (P, Q, v1, v2, decoded) with P, Q in (24, nb) W/VAr."""
+        dec = self.decode(x)
+        rb1, rb2, cb1, cb2, rc1, rc2, cc1, cc2 = dec
+        e = self.ev
 
-        hf_pen = max(0.0, (rc1 + rc2) - self._res_hf_cap_MW) * RES_HF_PENALTY_SLOPE
-
-        # --- vectorised 24-hour network snapshots ---
         v1 = np.where(self._peak_mask, np.minimum(e.V2G_avail_hourly[:, 0], cc1 * 1000 * V2G_RATING_FRAC), 0.0)
         v2 = np.where(self._peak_mask, np.minimum(e.V2G_avail_hourly[:, 1], cc2 * 1000 * V2G_RATING_FRAC), 0.0)
         net1 = e.P_EV_hourly[:, 0] - v1
@@ -178,6 +202,16 @@ class Problem:
         P[:, cb2 - 1] += net2 * 1000
         P[:, rb1 - 1] -= rc1 * 1e6 * self._gen_pu
         P[:, rb2 - 1] -= rc2 * 1e6 * self._gen_pu
+        if self.statcom:
+            Q = Q - self.statcom_q(*self.decode_statcom(x))
+        return P, Q, v1, v2, dec
+
+    def _evaluate(self, x, w, reg_weight_RES):
+        tau, beta, gamma, alpha = w
+        P, Q, v1, v2, (rb1, rb2, cb1, cb2, rc1, rc2, cc1, cc2) = self._network(x)
+        p = self.prof
+
+        hf_pen = max(0.0, (rc1 + rc2) - self._res_hf_cap_MW) * RES_HF_PENALTY_SLOPE
 
         V, P_loss = self.lf.solve(P, Q)
 
@@ -190,6 +224,9 @@ class Problem:
 
         # annualised capital cost -> daily equivalent
         F3 += (rc1 + rc2) * self._daily_capex_res_per_MW + (cc1 + cc2) * self._daily_capex_cs_per_MW
+        if self.statcom:
+            _, _, qc1, qc2 = self.decode_statcom(x)
+            F3 += (qc1 + qc2) * self._daily_capex_sc_per_MVAr
 
         # feasibility: charging station must cover the EV peak
         short = max(0.0, self._EV_peak[0] - cc1 * 1000) + max(0.0, self._EV_peak[1] - cc2 * 1000)
@@ -205,6 +242,29 @@ class Problem:
         F4p = (F4 - b["F4_lo"]) / max(b["F4_hi"] - b["F4_lo"], EPS)
         F = tau * F1p + beta * F2p + gamma * F3p + alpha * F4p + feas + reg + hf_pen
         return F, F1, F2, F3, F4
+
+    def metrics(self, x, without_statcom=False):
+        """Network diagnostics of layout x (not part of the objective): the paper's Q-loss, VDI and VSI plus Vmin.
+
+        P_loss_kW / Q_loss_kVAr are 24-h means; VDI is the mean per-snapshot sum|1-V|; VSI_min is the worst
+        Chakravorty stability index over all branches and hours (>0 stable); Vmin is over buses and hours.
+        without_statcom=True evaluates the same RES/CS layout with the DSTATCOMs removed (the benefit reference).
+        """
+        P, Q, _, _, _ = self._network(x)
+        if self.statcom and without_statcom:
+            Q = self._Q_base
+        V, P_loss, Q_loss, Ib = self.lf.solve(P, Q, full=True)
+        vm = np.abs(V)
+        FB, TB = self.sys.FB - 1, self.sys.TB - 1
+        S_r = V[:, TB] * np.conj(Ib) * self.lf.vbase                       # power entering each receiving bus [VA]
+        vb2 = self.lf.vbase ** 2
+        Pr, Qr = S_r.real, S_r.imag
+        R, X = self.sys.R, self.sys.X
+        Vs2 = vm[:, FB] ** 2
+        vsi = Vs2 ** 2 - 4 * ((Pr * X - Qr * R) / vb2) ** 2 - 4 * ((Pr * R + Qr * X) / vb2) * Vs2
+        return dict(P_loss_kW=float(P_loss.mean() / 1e3), Q_loss_kVAr=float(Q_loss.mean() / 1e3),
+                    VDI=float(np.sum(np.abs(1 - vm[:, 1:])) / vm.shape[0]), VSI_min=float(vsi.min()),
+                    Vmin=float(vm[:, 1:].min()))
 
     def objective(self, x, w=None, reg_weight_RES=0.05) -> float:
         return self._evaluate(x, self.w_fixed if w is None else w, reg_weight_RES)[0]

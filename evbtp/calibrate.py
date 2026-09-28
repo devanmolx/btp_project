@@ -8,7 +8,7 @@ w_fixed, and saves everything to results/calibration_<system>bus.npz.
 from dataclasses import asdict
 import numpy as np
 from . import config
-from .config import DEFAULT_WEIGHTS, N_VAR, VAR_IS_INT
+from .config import DEFAULT_WEIGHTS, var_is_int
 from .problem import Problem, Calibration, calibration_path, EPS
 from .utils import mround
 from .weights import compute_all
@@ -18,13 +18,14 @@ def calibrate(problem: Problem, n_samples=1000, seed=42, verbose=True, save=True
               weight_method=None) -> Calibration:
     weight_method = weight_method or config.WEIGHT_METHOD
     if verbose:
-        print("=" * 45); print(f"  CALIBRATION - INDIA {problem.system_id}-bus ({n_samples} samples)"); print("=" * 45)
+        print("=" * 45); print(f"  CALIBRATION - INDIA {problem.tag} ({n_samples} samples)"); print("=" * 45)
     rng = np.random.default_rng(seed)          # fixed seed: calibration is reproducible run to run
     lb, ub = problem.lb, problem.ub
+    n_var = len(lb); is_int = var_is_int(n_var)
     vals = np.zeros((n_samples, 4))
     for i in range(n_samples):
-        x = lb + rng.random(N_VAR) * (ub - lb)
-        x[VAR_IS_INT] = mround(x[VAR_IS_INT])
+        x = lb + rng.random(n_var) * (ub - lb)
+        x[is_int] = mround(x[is_int])
         _, *vals[i] = problem.detailed(x, DEFAULT_WEIGHTS)
         if verbose and (i + 1) % 100 == 0:
             print(f"  {i + 1}/{n_samples} samples done")
@@ -63,7 +64,7 @@ def calibrate(problem: Problem, n_samples=1000, seed=42, verbose=True, save=True
                       F1_vals=F1, F2_vals=F2, F3_vals=F3, F4_vals=F4,
                       weight_method=weight_method, w_all=w_all, ahp_info=asdict(ahp_info))
     if save:
-        p = calibration_path(problem.results_dir, problem.system_id)
+        p = calibration_path(problem.results_dir, problem.system_id, problem.statcom)
         p.parent.mkdir(parents=True, exist_ok=True)
         cal.save(p)
         if verbose:

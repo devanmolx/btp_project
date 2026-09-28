@@ -61,6 +61,27 @@ MATLAB: edit `SYSTEM_CHOICE_INDIA.m`. Python: pass `--system 69` (default lives 
 again for it. Because results/calibration are keyed by system, you can no longer accidentally mix them, and
 the MATLAB "run `clear functions`" caveat is gone (the cache is just the `Problem` object).
 
+## DSTATCOM extension (optional, `--statcom`)
+
+Adds **two DSTATCOMs** (bus + kVAr rating) to the decision vector, following Abdelaziz et al., *Sci Rep* 14:28974
+(2024). Every command now runs the DSTATCOM problem first and then the original one (`--statcom` = DSTATCOM only,
+`--no-statcom` = original only). The original problem is still exactly the MATLAB one (regression tests unchanged).
+
+```bash
+python -m evbtp --system 69 all                      # DSTATCOM run, then original run (each has its own calibration)
+python -m evbtp --system 69 --statcom optimize hoa   # DSTATCOM only; also gapso, mpa, `fair-compare`, `base-case`
+```
+
+* Decision vector grows 8 → 12: `x[8:10]` DSTATCOM buses, `x[10:12]` ratings (0–1.0 MVAr each). A DSTATCOM may share a bus with a RES/CS unit.
+* Model: reactive injection at the bus, peaking at the rated value at the load peak and following the load shape
+  (`Problem.statcom_q`). It enters the load flow through Q, so F1 (loss) and F2 (voltage) improve directly.
+* Cost: Rs 4,200/kVAr (~US$50/kVAr as in the paper), annualised with the same CRF machinery as RES/CS over 10 years
+  (the paper uses 1 year), added to F3. The four-term objective is unchanged.
+* Diagnostics (`Problem.metrics`, printed by `base-case`): mean P/Q loss, VDI, minimum VSI (Chakravorty form) and Vmin,
+  for the optimised layout **with vs without** its DSTATCOMs — the direct measure of what they buy.
+* Files get a `_statcom` suffix (`HOA_69bus_statcom_results.json`, `calibration_69bus_statcom.npz`, ...), so they never
+  mix with the base results.
+
 ## MATLAB → Python map
 
 | MATLAB | Python |

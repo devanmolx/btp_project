@@ -10,6 +10,10 @@ def comparison_table(g: OptResult, h: OptResult, m: OptResult) -> str:
     for lab, bi, ci in (("RES 1 (Bus, kW)", 0, 2), ("RES 2 (Bus, kW)", 1, 3), ("CS 1 (Bus, kW)", 4, 6), ("CS 2 (Bus, kW)", 5, 7)):
         cells = [f"{int(r.gbest[bi])}, {r.gbest[ci] * 1000:.0f} kW" for r in (g, h, m)]
         a(f"{lab:<24} {cells[0]:<16} {cells[1]:<16} {cells[2]:<16}")
+    if len(g.gbest) > 8:                                  # DSTATCOM problem
+        for lab, bi, ci in (("DSTATCOM 1 (Bus, kVAr)", 8, 10), ("DSTATCOM 2 (Bus, kVAr)", 9, 11)):
+            cells = [f"{int(r.gbest[bi])}, {r.gbest[ci] * 1000:.0f} kVAr" for r in (g, h, m)]
+            a(f"{lab:<24} {cells[0]:<16} {cells[1]:<16} {cells[2]:<16}")
     a(f"{'F1 - Loss (MWh/day)':<24} {g.F1:<16.4f} {h.F1:<16.4f} {m.F1:<16.4f}")
     a(f"{'F2 - Voltage (pu)':<24} {g.F2:<16.4f} {h.F2:<16.4f} {m.F2:<16.4f}")
     a(f"{'F3 - Energy Cost (Rs)':<24} {g.F3:<16.0f} {h.F3:<16.0f} {m.F3:<16.0f}")

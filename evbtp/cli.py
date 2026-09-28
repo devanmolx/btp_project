@@ -14,7 +14,7 @@ def _problem(a, quiet=False):
     from .problem import Problem
     from .ev_model import generate_ev_data, load_matlab_ev_data
     ev = generate_ev_data(seed=a.ev_seed) if a.ev_source == "generate" else load_matlab_ev_data()
-    return Problem(system=a.system, ev=ev, results_dir=a.results_dir, quiet=quiet)
+    return Problem(system=a.system, ev=ev, results_dir=a.results_dir, quiet=quiet, statcom=a.statcom)
 
 
 def _fig(a, fig, name):
@@ -49,8 +49,8 @@ def cmd_calibrate(a):
 
 def _need_calibration(a):
     from .problem import calibration_path
-    if not calibration_path(a.results_dir, a.system).exists():
-        raise SystemExit(f"No calibration for the {a.system}-bus system in {a.results_dir}/. "
+    if not calibration_path(a.results_dir, a.system, a.statcom).exists():
+        raise SystemExit(f"No calibration for the {config.case_tag(a.system, a.statcom)} case in {a.results_dir}/. "
                          "Run `python -m evbtp calibrate` first.")
 
 
@@ -67,13 +67,13 @@ def cmd_optimize(a):
     res = ALGORITHMS[a.algo](pr, **kw)
     save_result(res, a.algo, a.results_dir)
     if not a.no_plots:
-        out = Path(a.results_dir) / "figures" / f"{res.algo}_{pr.system_id}bus_diagnostics.png"
+        out = Path(a.results_dir) / "figures" / f"{res.algo}_{pr.tag}_diagnostics.png"
         _fig(a, plotting.plot_algo_diagnostics(res, pr.max_bus, out), "diag"); print(f"Saved {out}")
 
 
 def _load_three(a):
     from .results_io import load_result
-    out = [load_result(k, a.results_dir, a.system) for k in ("gapso", "hoa", "mpa")]
+    out = [load_result(k, a.results_dir, a.system, a.statcom) for k in ("gapso", "hoa", "mpa")]
     missing = [n for n, r in zip(("gapso", "hoa", "mpa"), out) if r is None]
     if missing:
         raise SystemExit(f"Missing results for: {', '.join(missing)}. Run `python -m evbtp optimize <algo>` first.")
@@ -86,7 +86,7 @@ def cmd_compare(a):
     g, h, m = _load_three(a)
     print(comparison_table(g, h, m))
     if not a.no_plots:
-        out = Path(a.results_dir) / "figures" / f"comparison_{a.system}bus.png"
+        out = Path(a.results_dir) / "figures" / f"comparison_{config.case_tag(a.system, a.statcom)}.png"
         _fig(a, plotting.plot_comparison(g, h, m, config.get_max_bus(a.system), out), "cmp"); print(f"Saved {out}")
 
 
@@ -97,11 +97,11 @@ def cmd_fair(a):
     _need_calibration(a)
     pr = _problem(a)
     res = fair_compare(pr, nofe_budget=a.budget, n_runs=a.runs)
-    p = Path(a.results_dir) / f"fair_compare_{a.system}bus_results.json"
+    p = Path(a.results_dir) / f"fair_compare_{config.case_tag(a.system, a.statcom)}_results.json"
     dump_json(res, p); print(f"\nSaved to {p}")
     if not a.no_plots:
         grid, curves = mean_convergence(res["conv_all"], a.budget)
-        out = Path(a.results_dir) / "figures" / f"fair_compare_{a.system}bus.png"
+        out = Path(a.results_dir) / "figures" / f"fair_compare_{config.case_tag(a.system, a.statcom)}.png"
         _fig(a, plotting.plot_fair_convergence(grid, curves, a.budget, a.runs, out), "fair"); print(f"Saved {out}")
 
 
@@ -116,7 +116,10 @@ def cmd_base(a):
         sc = [("Base case (no RES, no EV)", A["Vprofile"], dict(color="k", marker="o", ms=4, lw=2)),
               ("EV only (no RES)", B["Vprofile"], dict(color="r", ls="--", marker="s", ms=4, lw=1.6))]
         sc += [(n, c["Vprofile"], dict(color=cols[min(i, 2)], lw=2)) for i, (n, c) in enumerate(zip(algos, C))]
-        out = Path(a.results_dir) / "figures" / f"voltage_profile_{a.system}bus.png"
+        if pr.statcom:
+            best = min(range(len(algos)), key=lambda i: C[i]["F1"])
+            sc.append((f"{algos[best]} layout without DSTATCOM", C[best]["Vprofile_noSC"], dict(color="orange", ls="-.", lw=1.6)))
+        out = Path(a.results_dir) / "figures" / f"voltage_profile_{pr.tag}.png"
         fig = plotting.plot_voltage_profiles(sc, out); fig.axes[0].set_title(f"Voltage Profile Improvement -- IEEE {pr.max_bus}-bus (India)")
         fig.savefig(out, dpi=130, bbox_inches="tight"); _fig(a, fig, "v"); print(f"Saved {out}")
 
@@ -154,7 +157,7 @@ def cmd_robustness(a):
 
 
 def cmd_all(a):
-    cmd_ev_model(a); cmd_calibrate(a)
+    cmd_calibrate(a)
     for k in ("gapso", "hoa", "mpa"):
         a.algo = k; cmd_optimize(a)
     cmd_compare(a); cmd_fair(a); cmd_base(a)
@@ -168,6 +171,10 @@ def build_parser():
     g.add_argument("--ev-source", choices=("matlab", "generate"), default="matlab",
                    help="matlab = the exact fleet from the MATLAB project (default); generate = fresh fleet from NumPy RNG")
     g.add_argument("--ev-seed", type=int, default=42)
+    g.add_argument("--statcom", dest="variant", action="store_const", const="statcom", default="both",
+                   help="run ONLY the DSTATCOM problem (two DSTATCOMs added to the decision vector; files get a _statcom suffix)")
+    g.add_argument("--no-statcom", dest="variant", action="store_const", const="base",
+                   help="run ONLY the original problem (no DSTATCOM). Default: both, DSTATCOM first then original")
     g.add_argument("--no-plots", action="store_true"); g.add_argument("--show", action="store_true", help="open plot windows")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -198,7 +205,19 @@ def main(argv=None):
     if not a.show:
         from . import plotting
         plotting.use_headless()
-    a.f(a)
+    if a.cmd == "all":
+        cmd_ev_model(a)                                  # fleet is shared by both variants
+    variants = {"both": (True, False), "base": (False,), "statcom": (True,)}[a.variant]   # DSTATCOM first
+    for sc in variants:
+        if a.cmd in _VARIANT_FREE and sc is not variants[0]:
+            break                                        # ev-model / profiles do not depend on DSTATCOM
+        a.statcom = sc
+        if len(variants) > 1 and a.cmd not in _VARIANT_FREE:
+            print("\n" + "#" * 60 + f"\n#  {'WITH DSTATCOM' if sc else 'ORIGINAL (no DSTATCOM)'}\n" + "#" * 60)
+        a.f(a)
+
+
+_VARIANT_FREE = ("ev-model", "profiles")
 
 
 if __name__ == "__main__":
