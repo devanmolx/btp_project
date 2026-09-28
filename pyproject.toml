@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evbtp-india"
+version = "1.0.0"
+description = "EV charging-station + RES siting optimisation on IEEE 33/69-bus systems (India) - Python port"
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.24", "scipy>=1.10", "matplotlib>=3.7"]
+
+[project.scripts]
+evbtp = "evbtp.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["evbtp*"]
+
+[tool.setuptools.package-data]
+evbtp = ["data/*"]
