@@ -153,12 +153,12 @@ def build_parser():
     s.add_argument("--max-iter", type=int, default=200); s.add_argument("--pop-size", type=int, default=50); s.set_defaults(f=cmd_optimize)
     s = sub.add_parser("compare", help="single-run 3-way table + plots"); s.set_defaults(f=cmd_compare)
     s = sub.add_parser("fair-compare", help="equal-NOFE, multi-seed comparison (the number to report)")
-    s.add_argument("--budget", type=int, default=20000); s.add_argument("--runs", type=int, default=10); s.set_defaults(f=cmd_fair)
+    s.add_argument("--budget", type=int, default=20000); s.add_argument("--runs", type=int, default=30); s.set_defaults(f=cmd_fair)
     s = sub.add_parser("base-case", help="improvement vs base case + voltage profile"); s.set_defaults(f=cmd_base)
     s = sub.add_parser("loss-priority", help="balanced vs loss-priority scenario"); s.set_defaults(f=cmd_loss)
     s = sub.add_parser("all", help="whole pipeline"); s.add_argument("--samples", type=int, default=1000)
     s.add_argument("--seed", type=int); s.add_argument("--max-iter", type=int, default=200); s.add_argument("--pop-size", type=int, default=50)
-    s.add_argument("--budget", type=int, default=20000); s.add_argument("--runs", type=int, default=10); s.add_argument("--regenerate", action="store_true"); s.set_defaults(f=cmd_all)
+    s.add_argument("--budget", type=int, default=20000); s.add_argument("--runs", type=int, default=30); s.add_argument("--regenerate", action="store_true"); s.set_defaults(f=cmd_all)
     return p
 
 

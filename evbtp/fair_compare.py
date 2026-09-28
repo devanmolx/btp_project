@@ -23,7 +23,7 @@ def _run(name, problem, budget, seed):
     return run_mpa(problem, max_iter=None, nofe_budget=budget, schedule_iters=max(1, budget // 100), seed=seed, verbose=False)
 
 
-def fair_compare(problem, nofe_budget=20000, n_runs=10, seed_base=1000, verbose=True):
+def fair_compare(problem, nofe_budget=20000, n_runs=30, seed_base=1000, verbose=True):
     if verbose:
         print("=" * 45 + f"\n  FAIR COMPARISON (equal NOFE budget = {nofe_budget}, {n_runs} runs)\n" + "=" * 45 + "\n")
     best = {a: np.zeros(n_runs) for a in ALGOS}
