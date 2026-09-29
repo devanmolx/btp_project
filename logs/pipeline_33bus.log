@@ -1,0 +1,458 @@
+### python -m evbtp --system 33 ev-model
+EV POPULATION SUMMARY (160 EVs)
+  Avg daily distance : 29.36 km
+  Avg charging demand: 2.70 kWh
+  Avg SOC initial    : 50.10 %
+  Avg SOC desired    : 57.51 %
+  Avg parking time   : 14.03 hrs
+  Peak EV demand     : 1007.70 kW (combined)
+  Peak per station   : 489.90 / 517.80 kW
+  Tata Tiago EV: 39 EVs (24.4%)
+  Tata Nexon EV: 30 EVs (18.8%)
+  Mahindra XUV400: 52 EVs (32.5%)
+  MG ZS EV: 39 EVs (24.4%)
+Saved results\figures\EV_Model_INDIA_Plots.png
+### python -m evbtp --system 33 calibrate
+=============================================
+  CALIBRATION - INDIA 33-bus (1000 samples)
+=============================================
+  100/1000 samples done
+  200/1000 samples done
+  300/1000 samples done
+  400/1000 samples done
+  500/1000 samples done
+  600/1000 samples done
+  700/1000 samples done
+  800/1000 samples done
+  900/1000 samples done
+  1000/1000 samples done
+
+Term   P5 (lo)      P95 (hi)     Mean         Std         
+F1     4.2251       6.2597       5.1983       0.6118      
+F2     37.3220      45.7153      41.5029      2.6003      
+F3     583077       616978       599704       10097       
+F4     2075.9314    7296.8587    4733.9181    1535.7792   
+
+AHP (pairwise matrix from config.AHP_MATRIX):
+AHP weights (eigenvector)    : [0.4379 0.2437 0.2190 0.0994]
+AHP weights (geometric mean) : [0.4387 0.2428 0.2194 0.0991]
+lambda_max = 4.0206 | CI = 0.0069 | CR = 0.0076 (RI = 0.90)
+
+Method           tau      beta     gamma    alpha   
+ahp_critic       0.3547   0.1902   0.2471   0.2080  
+ahp              0.4379   0.2437   0.2190   0.0994  
+critic           0.1683   0.1622   0.2346   0.4349  
+critic_f4fixed   0.2438   0.2220   0.4843   0.0500  
+markov           0.3548   0.2256   0.3695   0.0500  
+combined         0.2616   0.1939   0.3020   0.2424  
+equal            0.2500   0.2500   0.2500   0.2500  
+base_paper       (not set -- fill BASE_PAPER_W in evbtp/config.py)
+
+ACTIVE weight_method = 'ahp_critic' -> w_fixed = [0.3547 0.1902 0.2471 0.2080]
+(Sum check: 1.000000 -- should equal 1.0)
+
+Correlation(F1,F2) = 0.976  <-- high; F1 and F2 are largely redundant here.
+
+Saved to results\calibration_33bus.npz
+Re-run this after any change to the objective, bounds, EV/RES data, weights or system,
+then re-run every optimizer (weights and the scale of F both change).
+### python -m evbtp --system 33 optimize gapso --seed 1
+Using calibrated weights: [0.3547 0.1902 0.2471 0.2080]
+
+Iter   1 | Best F: 0.178945 | Mean F: 0.851439 | F1=3.857 F2=34.567 F3=586383 F4=7340.00 | NOFE: 396
+Iter  10 | Best F: 0.053490 | Mean F: 1.697038 | F1=3.639 F2=33.400 F3=583673 F4=6386.58 | NOFE: 3127
+Iter  20 | Best F: 0.047899 | Mean F: 4.000025 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 6207
+Iter  30 | Best F: 0.047899 | Mean F: 3.610022 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 9266
+Iter  40 | Best F: 0.047899 | Mean F: 4.342322 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 12191
+Iter  50 | Best F: 0.047899 | Mean F: 3.521668 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 15106
+Iter  60 | Best F: 0.047899 | Mean F: 2.706047 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 18175
+Iter  70 | Best F: 0.047899 | Mean F: 3.736877 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 21387
+Iter  80 | Best F: 0.047899 | Mean F: 3.569035 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 24156
+Iter  90 | Best F: 0.047899 | Mean F: 2.457411 | F1=3.622 F2=33.420 F3=583341 F4=6358.04 | NOFE: 27151
+Iter 100 | Best F: 0.047819 | Mean F: 2.387172 | F1=3.618 F2=33.472 F3=583361 F4=6351.50 | NOFE: 30363
+Iter 110 | Best F: 0.047652 | Mean F: 3.729130 | F1=3.623 F2=33.409 F3=583356 F4=6346.07 | NOFE: 33215
+Iter 120 | Best F: 0.047652 | Mean F: 3.507853 | F1=3.623 F2=33.409 F3=583356 F4=6346.07 | NOFE: 36354
+Iter 130 | Best F: 0.047652 | Mean F: 3.664144 | F1=3.623 F2=33.409 F3=583356 F4=6346.07 | NOFE: 39512
+Iter 140 | Best F: 0.047385 | Mean F: 1.633770 | F1=3.622 F2=33.414 F3=583354 F4=6355.90 | NOFE: 42431
+Iter 150 | Best F: 0.046973 | Mean F: 3.251178 | F1=3.622 F2=33.410 F3=583343 F4=6350.55 | NOFE: 45221
+Iter 160 | Best F: 0.046973 | Mean F: 1.753509 | F1=3.622 F2=33.410 F3=583343 F4=6350.55 | NOFE: 48397
+Iter 170 | Best F: 0.046973 | Mean F: 2.660231 | F1=3.622 F2=33.410 F3=583343 F4=6350.55 | NOFE: 51009
+Iter 180 | Best F: 0.046973 | Mean F: 2.903674 | F1=3.622 F2=33.410 F3=583343 F4=6350.55 | NOFE: 54709
+Iter 190 | Best F: 0.046973 | Mean F: 2.872381 | F1=3.622 F2=33.410 F3=583343 F4=6350.55 | NOFE: 57661
+Iter 200 | Best F: 0.046973 | Mean F: 2.974114 | F1=3.622 F2=33.410 F3=583343 F4=6350.55 | NOFE: 60488
+
+=============================================
+  COMPLETE - GA-PSO India (33-bus)
+=============================================
+Weights [tau,beta,gamma,alpha]: [0.3547 0.1902 0.2471 0.2080]
+Best Fitness: 0.046973 | NOFE: 60488 | Time: 98.68 s
+RES 1: Bus 18, 560.1 kW | RES 2: Bus 16, 739.9 kW
+CS 1 : Bus 2, 490.3 kW | CS 2 : Bus 19, 518.4 kW
+
+F1=3.6221 MWh/day  F2=33.4104 pu (24h sum)  F3=Rs.583343  F4=Rs.6350.55
+
+Saved to results\GAPSO_33bus_results.json
+Saved results\figures\GA-PSO_33bus_diagnostics.png
+### python -m evbtp --system 33 optimize hoa --seed 1
+Using calibrated weights: [0.3547 0.1902 0.2471 0.2080]
+
+Initial best fitness: 0.386376
+
+Iter     Best F         NOFE      
+----------------------------------------
+1        0.360088       200       
+10       0.152335       1550      
+20       0.131341       3050      
+30       0.090636       4550      
+40       0.089541       6050      
+50       0.085964       7550      
+60       0.067494       9050      
+70       0.057823       10550     
+80       0.051537       12050     
+90       0.048831       13550     
+100      0.047786       15050     
+110      0.047479       16550     
+120      0.047377       18050     
+130      0.047377       19550     
+140      0.047327       21050     
+150      0.047327       22550     
+160      0.047325       24050     
+170      0.047313       25550     
+180      0.047307       27050     
+190      0.047304       28550     
+200      0.047302       30050     
+
+=============================================
+  COMPLETE - HOA India (33-bus)
+=============================================
+Weights [tau,beta,gamma,alpha]: [0.3547 0.1902 0.2471 0.2080]
+Best Fitness: 0.047302 | NOFE: 30050 | Time: 25.50 s
+RES 1: Bus 17, 1000.0 kW | RES 2: Bus 14, 300.3 kW
+CS 1 : Bus 2, 489.9 kW | CS 2 : Bus 19, 517.8 kW
+
+F1=3.6223 MWh/day  F2=33.4343 pu (24h sum)  F3=Rs.583343  F4=Rs.6345.04
+
+Saved to results\HOA_33bus_results.json
+Saved results\figures\HOA_33bus_diagnostics.png
+### python -m evbtp --system 33 optimize mpa --seed 1
+Using calibrated weights: [0.3547 0.1902 0.2471 0.2080]
+
+Initial best fitness: 0.386376
+
+Iter     Best F         NOFE      
+----------------------------------------
+1        0.234903       150       
+10       0.150124       1050      
+20       0.136233       2050      
+30       0.082862       3050      
+40       0.082862       4050      
+50       0.082862       5050      
+60       0.082862       6050      
+70       0.082862       7050      
+80       0.082118       8050      
+90       0.066125       9050      
+100      0.063530       10050     
+110      0.056073       11050     
+120      0.052785       12050     
+130      0.050586       13050     
+140      0.047886       14050     
+150      0.047606       15050     
+160      0.047308       16050     
+170      0.047240       17050     
+180      0.047170       18050     
+190      0.047098       19050     
+200      0.047054       20050     
+
+=============================================
+  COMPLETE - MPA India (33-bus)
+=============================================
+Weights [tau,beta,gamma,alpha]: [0.3547 0.1902 0.2471 0.2080]
+Best Fitness: 0.047054 | NOFE: 20050 | Time: 31.21 s
+RES 1: Bus 16, 965.3 kW | RES 2: Bus 18, 335.0 kW
+CS 1 : Bus 2, 489.9 kW | CS 2 : Bus 19, 517.8 kW
+
+F1=3.6212 MWh/day  F2=33.4350 pu (24h sum)  F3=Rs.583336  F4=Rs.6344.90
+
+Saved to results\MPA_33bus_results.json
+Saved results\figures\MPA_33bus_diagnostics.png
+### python -m evbtp --system 33 compare
+=====================================================================
+   COMPARISON TABLE: GA-PSO vs HOA vs MPA - India (single run each)
+=====================================================================
+Metric                   GA-PSO           HOA              MPA             
+------------------------------------------------------------------------
+Best Fitness (F)         0.046973         0.047302         0.047054        
+RES 1 (Bus, kW)          18, 560 kW       17, 1000 kW      16, 965 kW      
+RES 2 (Bus, kW)          16, 740 kW       14, 300 kW       18, 335 kW      
+CS 1 (Bus, kW)           2, 490 kW        2, 490 kW        2, 490 kW       
+CS 2 (Bus, kW)           19, 518 kW       19, 518 kW       19, 518 kW      
+F1 - Loss (MWh/day)      3.6221           3.6223           3.6212          
+F2 - Voltage (pu)        33.4104          33.4343          33.4350         
+F3 - Energy Cost (Rs)    583343           583343           583336          
+F4 - Battery Wear (Rs)   6350.55          6345.04          6344.90         
+NOFE (total)             60488            30050            20050           
+Time (s)                 98.68            25.50            31.21           
+------------------------------------------------------------------------
+Best single-run fitness: GA-PSO (lower is better)
+NOFE ratio GA-PSO/HOA = 2.01x, GA-PSO/MPA = 3.02x
+NOTE: unequal budgets above make this comparison suggestive, not conclusive --
+run `python -m evbtp fair-compare` for the real, equal-budget, multi-seed comparison.
+=====================================================================
+Saved results\figures\comparison_33bus.png
+### python -m evbtp --system 33 fair-compare
+=============================================
+  FAIR COMPARISON (equal NOFE budget = 20000, 30 runs)
+=============================================
+
+--- Run 1/30 ---
+  GAPSO : F=0.047390  NOFE=20006
+  HOA   : F=0.045579  NOFE=20000
+  MPA   : F=0.045331  NOFE=20000
+--- Run 2/30 ---
+  GAPSO : F=0.046385  NOFE=20002
+  HOA   : F=0.047112  NOFE=20000
+  MPA   : F=0.047641  NOFE=20000
+--- Run 3/30 ---
+  GAPSO : F=0.045444  NOFE=20008
+  HOA   : F=0.046771  NOFE=20000
+  MPA   : F=0.047108  NOFE=20000
+--- Run 4/30 ---
+  GAPSO : F=0.046502  NOFE=20006
+  HOA   : F=0.065058  NOFE=20000
+  MPA   : F=0.045335  NOFE=20000
+--- Run 5/30 ---
+  GAPSO : F=0.047115  NOFE=20032
+  HOA   : F=0.046989  NOFE=20000
+  MPA   : F=0.045277  NOFE=20000
+--- Run 6/30 ---
+  GAPSO : F=0.049186  NOFE=20008
+  HOA   : F=0.047160  NOFE=20000
+  MPA   : F=0.045284  NOFE=20000
+--- Run 7/30 ---
+  GAPSO : F=0.047410  NOFE=20019
+  HOA   : F=0.045951  NOFE=20000
+  MPA   : F=0.047469  NOFE=20000
+--- Run 8/30 ---
+  GAPSO : F=0.048413  NOFE=20000
+  HOA   : F=0.045302  NOFE=20000
+  MPA   : F=0.046466  NOFE=20000
+--- Run 9/30 ---
+  GAPSO : F=0.045360  NOFE=20001
+  HOA   : F=0.045344  NOFE=20000
+  MPA   : F=0.046679  NOFE=20000
+--- Run 10/30 ---
+  GAPSO : F=0.047781  NOFE=20036
+  HOA   : F=0.048433  NOFE=20000
+  MPA   : F=0.045843  NOFE=20000
+--- Run 11/30 ---
+  GAPSO : F=0.045288  NOFE=20007
+  HOA   : F=0.046512  NOFE=20000
+  MPA   : F=0.045847  NOFE=20000
+--- Run 12/30 ---
+  GAPSO : F=0.048247  NOFE=20025
+  HOA   : F=0.053000  NOFE=20000
+  MPA   : F=0.046818  NOFE=20000
+--- Run 13/30 ---
+  GAPSO : F=0.047308  NOFE=20032
+  HOA   : F=0.047167  NOFE=20000
+  MPA   : F=0.045274  NOFE=20000
+--- Run 14/30 ---
+  GAPSO : F=0.047443  NOFE=20000
+  HOA   : F=0.087361  NOFE=20000
+  MPA   : F=0.047098  NOFE=20000
+--- Run 15/30 ---
+  GAPSO : F=0.045528  NOFE=20000
+  HOA   : F=0.046995  NOFE=20000
+  MPA   : F=0.047090  NOFE=20000
+--- Run 16/30 ---
+  GAPSO : F=0.047516  NOFE=20023
+  HOA   : F=0.045366  NOFE=20000
+  MPA   : F=0.046857  NOFE=20000
+--- Run 17/30 ---
+  GAPSO : F=0.048021  NOFE=20018
+  HOA   : F=0.065851  NOFE=20000
+  MPA   : F=0.046678  NOFE=20000
+--- Run 18/30 ---
+  GAPSO : F=0.048408  NOFE=20036
+  HOA   : F=0.046789  NOFE=20000
+  MPA   : F=0.046152  NOFE=20000
+--- Run 19/30 ---
+  GAPSO : F=0.047211  NOFE=20000
+  HOA   : F=0.047114  NOFE=20000
+  MPA   : F=0.046667  NOFE=20000
+--- Run 20/30 ---
+  GAPSO : F=0.045343  NOFE=20000
+  HOA   : F=0.047234  NOFE=20000
+  MPA   : F=0.046910  NOFE=20000
+--- Run 21/30 ---
+  GAPSO : F=0.045345  NOFE=20054
+  HOA   : F=0.045480  NOFE=20000
+  MPA   : F=0.045341  NOFE=20000
+--- Run 22/30 ---
+  GAPSO : F=0.052416  NOFE=20025
+  HOA   : F=0.048985  NOFE=20000
+  MPA   : F=0.046761  NOFE=20000
+--- Run 23/30 ---
+  GAPSO : F=0.045344  NOFE=20012
+  HOA   : F=0.046890  NOFE=20000
+  MPA   : F=0.045907  NOFE=20000
+--- Run 24/30 ---
+  GAPSO : F=0.045344  NOFE=20000
+  HOA   : F=0.047062  NOFE=20000
+  MPA   : F=0.045384  NOFE=20000
+--- Run 25/30 ---
+  GAPSO : F=0.045316  NOFE=20000
+  HOA   : F=0.051720  NOFE=20000
+  MPA   : F=0.045899  NOFE=20000
+--- Run 26/30 ---
+  GAPSO : F=0.045603  NOFE=20041
+  HOA   : F=0.046908  NOFE=20000
+  MPA   : F=0.045340  NOFE=20000
+--- Run 27/30 ---
+  GAPSO : F=0.046743  NOFE=20000
+  HOA   : F=0.050828  NOFE=20000
+  MPA   : F=0.045496  NOFE=20000
+--- Run 28/30 ---
+  GAPSO : F=0.045339  NOFE=20005
+  HOA   : F=0.046676  NOFE=20000
+  MPA   : F=0.045844  NOFE=20000
+--- Run 29/30 ---
+  GAPSO : F=0.047268  NOFE=20003
+  HOA   : F=0.045328  NOFE=20000
+  MPA   : F=0.045333  NOFE=20000
+--- Run 30/30 ---
+  GAPSO : F=0.047717  NOFE=20034
+  HOA   : F=0.046515  NOFE=20000
+  MPA   : F=0.046954  NOFE=20000
+
+=====================================================================
+  SUMMARY OVER 30 RUNS (equal NOFE budget = 20000 each)
+=====================================================================
+Algo     Best         Mean         Worst        Std          Avg NOFE  
+GAPSO    0.045288     0.046924     0.052416     0.001576     20014     
+HOA      0.045302     0.049783     0.087361     0.008659     20000     
+MPA      0.045274     0.046203     0.047641     0.000767     20000     
+=====================================================================
+Lower is better (F is minimised). Compare MEAN and STD, not just the best run.
+
+Wilcoxon rank-sum test (two-sided) on best fitness per run:
+  GAPSO  vs HOA   : p = 0.5395
+  GAPSO  vs MPA   : p = 0.02813  (p<0.05)
+  HOA    vs MPA   : p = 0.003034  (p<0.05)
+
+Saved to results\fair_compare_33bus_results.json
+Saved results\figures\fair_compare_33bus.png
+### python -m evbtp --system 33 base-case
+=====================================================
+  BASE CASE ANALYSIS -- IEEE 33-bus (India)
+=====================================================
+
+Scenario       F1 (MWh/day)   F2 (pu)        F3 (Rs/day)    Vmin (pu)   
+----------------------------------------------------------------------
+Base case      4.2442         38.0637        534797         0.9131      
+EV only        4.3229         38.3706        618621         0.9127      
+GA-PSO         3.6221         33.4104        583343         0.9162      
+HOA            3.6223         33.4343        583343         0.9162      
+MPA            3.6212         33.4350        583336         0.9161      
+(F3: Base/EV-only = grid energy cost only; optimised rows include capex and V2G revenue.)
+
+=====================================================
+  IMPROVEMENT vs BASE CASE  (the headline numbers)
+=====================================================
+Algorithm      Loss reduction   Voltage dev.     Vmin improvement
+------------------------------------------------------------------
+GA-PSO         14.66%           12.23%           0.9131 -> 0.9162
+HOA            14.65%           12.16%           0.9131 -> 0.9162
+MPA            14.68%           12.16%           0.9131 -> 0.9161
+
+--- Impact of EV charging alone (no RES) vs base case ---
+Loss increase   : 1.86%
+Vmin drops from : 0.9131 to 0.9127 pu
+This quantifies the problem that RES allocation is solving.
+Saved results\figures\voltage_profile_33bus.png
+### python -m evbtp --system 33 loss-priority
+=============================================
+  SCENARIO COMPARISON: Balanced vs Loss-Priority
+=============================================
+
+Scenario A (Balanced): RES 0.56/0.74 MW | F1=3.6221 F2=33.4104 F3=Rs.583343 F4=Rs.6350.55
+Scenario B (Loss-priority, RES at 1.0/1.0 MW bound): F1=3.4335 F2=30.8967 F3=Rs.567733 F4=Rs.6350.55
+
+--- Improvement (Scenario A -> B) ---
+F1 (loss)    : 5.21% reduction
+F2 (voltage) : 7.52% reduction
+F3 (cost)    : 2.68% change
+F4 (battery) : 0.00% change
+
+Trade-off: Scenario B installs 0.70 MW more RES
+NOTE: the RES hosting-factor cap (35% of load) is a soft penalty in F; B may violate it.
+### python -m evbtp --system 33 weights
+=====================================================================
+  OBJECTIVE WEIGHTS BY METHOD  (IEEE 33-bus calibration)
+=====================================================================
+Method               F1 loss   F2 volt   F3 cost   F4 batt  
+---------------------------------------------------------------------
+Base paper (2017)    (not set -- fill BASE_PAPER_W in evbtp/config.py)
+Equal                0.2500    0.2500    0.2500    0.2500   
+Markov               0.3548    0.2256    0.3695    0.0500   
+CRITIC               0.1683    0.1622    0.2346    0.4349   
+CRITIC (F4 fixed)    0.2438    0.2220    0.4843    0.0500   
+Markov+CRITIC        0.2616    0.1939    0.3020    0.2424   
+AHP                  0.4379    0.2437    0.2190    0.0994   
+AHP x CRITIC         0.3547    0.1902    0.2471    0.2080   <-- active (w_fixed)
+---------------------------------------------------------------------
+AHP: lambda_max = 4.0206, CI = 0.0069, CR = 0.0076 (consistent)
+AHP geometric-mean weights: [0.4387 0.2428 0.2194 0.0991]
+AHP matrix is a PLACEHOLDER until confirmed by the guide.
+=====================================================================
+### python -m evbtp --system 33 robustness
+=====================================================================
+  WEIGHT ROBUSTNESS -- IEEE 33-bus | MPA, 20000 NOFE, 5 seeds per set
+=====================================================================
+base_paper   NOT RUN (weights not defined)
+equal        seed 1: F=0.084111 F1=3.6242 F2=33.3934 F3=583356 F4=6344.77 Vmin=0.9163 x=[16 18 0.581 0.719 19 2 0.490 0.518]
+equal        seed 2: F=0.084147 F1=3.6222 F2=33.4059 F3=583343 F4=6344.77 Vmin=0.9162 x=[16 18 0.707 0.593 19 2 0.490 0.518]
+equal        seed 3: F=0.084551 F1=3.6209 F2=33.4270 F3=583334 F4=6344.76 Vmin=0.9162 x=[16 18 0.901 0.399 19 2 0.490 0.518]
+equal        seed 4: F=0.084560 F1=3.6273 F2=33.3906 F3=583376 F4=6344.77 Vmin=0.9162 x=[16 17 0.301 1.000 2 19 0.490 0.518]
+equal        seed 5: F=0.084162 F1=3.6221 F2=33.4073 F3=583342 F4=6344.78 Vmin=0.9162 x=[16 18 0.721 0.579 19 2 0.490 0.518]
+critic       seed 1: F=0.300382 F1=3.6249 F2=33.3902 F3=583360 F4=6344.77 Vmin=0.9163 x=[16 18 0.548 0.753 19 2 0.490 0.518]
+critic       seed 2: F=0.300732 F1=3.6300 F2=33.3742 F3=583394 F4=6344.77 Vmin=0.9163 x=[16 18 0.360 0.940 2 19 0.490 0.518]
+critic       seed 3: F=0.300624 F1=3.6259 F2=33.3956 F3=583367 F4=6344.72 Vmin=0.9162 x=[16 17 0.375 0.925 2 19 0.490 0.518]
+critic       seed 4: F=0.301539 F1=3.5929 F2=33.6622 F3=583150 F4=6344.77 Vmin=0.9160 x=[33 18 0.300 1.000 2 19 0.490 0.518]
+critic       seed 5: F=0.300648 F1=3.6264 F2=33.3936 F3=583371 F4=6344.77 Vmin=0.9162 x=[16 17 0.346 0.954 2 19 0.490 0.518]
+markov       seed 1: F=-0.097846 F1=3.6205 F2=33.4324 F3=583331 F4=6344.78 Vmin=0.9161 x=[15 17 0.450 0.851 2 19 0.490 0.518]
+markov       seed 2: F=-0.099136 F1=3.5879 F2=33.6830 F3=583117 F4=6345.01 Vmin=0.9159 x=[33 17 0.300 1.000 19 2 0.490 0.518]
+markov       seed 3: F=-0.099024 F1=3.5881 F2=33.6840 F3=583116 F4=6349.56 Vmin=0.9159 x=[17 33 0.999 0.301 2 19 0.491 0.518]
+markov       seed 4: F=-0.099125 F1=3.5875 F2=33.6866 F3=583115 F4=6344.83 Vmin=0.9159 x=[17 33 0.997 0.304 19 2 0.490 0.518]
+markov       seed 5: F=-0.097437 F1=3.5766 F2=33.8497 F3=583042 F4=6344.79 Vmin=0.9157 x=[33 17 0.451 0.849 2 19 0.490 0.518]
+combined     seed 1: F=0.101355 F1=3.6261 F2=33.3851 F3=583369 F4=6344.77 Vmin=0.9163 x=[18 16 0.809 0.491 19 2 0.490 0.518]
+combined     seed 2: F=0.101483 F1=3.5926 F2=33.6618 F3=583149 F4=6344.77 Vmin=0.9160 x=[18 33 1.000 0.300 19 2 0.490 0.518]
+combined     seed 3: F=0.101133 F1=3.5881 F2=33.6833 F3=583119 F4=6344.78 Vmin=0.9159 x=[17 33 1.000 0.300 2 19 0.490 0.518]
+combined     seed 4: F=0.101106 F1=3.6226 F2=33.4026 F3=583346 F4=6344.77 Vmin=0.9162 x=[18 16 0.625 0.675 19 2 0.490 0.518]
+combined     seed 5: F=0.101572 F1=3.6241 F2=33.4111 F3=583355 F4=6344.77 Vmin=0.9162 x=[15 17 0.300 1.000 2 19 0.490 0.518]
+ahp_critic   seed 1: F=0.047054 F1=3.6212 F2=33.4350 F3=583336 F4=6344.90 Vmin=0.9161 x=[16 18 0.965 0.335 2 19 0.490 0.518]
+ahp_critic   seed 2: F=0.045278 F1=3.5875 F2=33.6873 F3=583114 F4=6344.78 Vmin=0.9159 x=[17 33 0.996 0.304 19 2 0.490 0.518]
+ahp_critic   seed 3: F=0.047168 F1=3.6213 F2=33.4391 F3=583336 F4=6344.77 Vmin=0.9161 x=[16 18 1.000 0.300 2 19 0.490 0.518]
+ahp_critic   seed 4: F=0.046622 F1=3.6222 F2=33.4058 F3=583343 F4=6344.77 Vmin=0.9162 x=[16 18 0.706 0.594 19 2 0.490 0.518]
+ahp_critic   seed 5: F=0.045915 F1=3.5891 F2=33.6999 F3=583125 F4=6344.77 Vmin=0.9160 x=[33 18 0.335 0.966 2 19 0.490 0.518]
+
+IEEE 33-bus
+Weight set | RES buses (freq) | kW      | CS buses (freq) | kW     | F1 MWh/d        | F2 pu           | Energy cost Rs/d | F4 Rs        | Vmin pu        
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+equal      | 16,18(4/5)|642+/-222/658+/-222| 2,19(5/5)|512+/-12/495+/-12| 3.6233+/-0.0025 | 33.405+/-0.014  | 583350+/-17      | 6344.8+/-0.0 | 0.9162+/-0.0000
+critic     | 16,18(2/5)|526+/-277/775+/-277| 2,19(5/5)|495+/-12/512+/-12| 3.6200+/-0.0153 | 33.443+/-0.123  | 583328+/-100     | 6344.8+/-0.0 | 0.9162+/-0.0001
+markov     | 17,33(4/5)|859+/-238/441+/-238| 2,19(5/5)|501+/-15/507+/-15| 3.5921+/-0.0166 | 33.667+/-0.149  | 583144+/-109     | 6345.8+/-2.1 | 0.9159+/-0.0002
+combined   | 16,18(2/5)|693+/-310/607+/-310| 2,19(5/5)|507+/-15/501+/-15| 3.6107+/-0.0187 | 33.509+/-0.150  | 583267+/-123     | 6344.8+/-0.0 | 0.9161+/-0.0002
+ahp_critic | 16,18(3/5)|927+/-124/374+/-124| 2,19(5/5)|501+/-15/507+/-15| 3.6083+/-0.0183 | 33.533+/-0.147  | 583251+/-120     | 6344.8+/-0.1 | 0.9161+/-0.0001
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+Buses: most frequent pair over seeds (units sorted by bus number); kW per unit as mean+/-std.
+Energy cost = F3 (grid energy - V2G revenue + daily capex).
+
+Spread across weight sets (max-min of the per-set means, % of their average):
+  F1  : 0.86 %  (3.5921 .. 3.6233 MWh/d)
+  Vmin: 0.03 %  (0.9159 .. 0.9162 pu)
+Not run (weights undefined): base_paper
+
+Saved to results\weight_robustness_INDIA.json (key bus33)
+Saved results\figures\weight_robustness_F1_33bus.png
+### DONE 33
