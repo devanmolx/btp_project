@@ -22,7 +22,24 @@ RES_CAP_MIN, RES_CAP_MAX = 0.01, 1.0     # MW per unit (net-metering ceiling)
 CS_CAP_MIN,  CS_CAP_MAX  = 0.05, 0.7     # MW per unit
 
 DEFAULT_WEIGHTS = (0.25, 0.25, 0.25, 0.25)
-ALPHA_FIXED = 0.05                        # fixed F4 weight used by calibration
+ALPHA_FIXED = 0.05                        # fixed F4 weight for 'markov' and 'critic_f4fixed'
+
+# ---- objective weighting (SCENARIO_SETTINGS_INDIA.m); see evbtp/weights.py ----
+WEIGHT_METHOD = "ahp_critic"              # which method calibration copies into w_fixed
+# PLACEHOLDER - pairwise judgements to be confirmed by the guide
+# (Saaty 1-9 scale; rows/cols = F1 loss, F2 voltage, F3 cost, F4 battery)
+AHP_MATRIX = np.array([[1,   2,   2,   4],
+                       [1/2, 1,   1,   3],
+                       [1/2, 1,   1,   2],
+                       [1/4, 1/3, 1/2, 1]])
+# Weights of the 2017 base paper, [tau beta gamma alpha] (F1 loss, F2 voltage, F3 cost, F4 battery).
+# Set to None to disable the 'base_paper' method.
+BASE_PAPER_W = (0.4, 0.3, 0.2, 0.1)
+
+# weight-robustness study
+ROBUST_SETS = ("base_paper", "equal", "critic", "markov", "combined", "ahp_critic")
+ROBUST_SEEDS = (1, 2, 3, 4, 5)
+ROBUST_NOFE = 20000
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_RESULTS_DIR = Path("results")

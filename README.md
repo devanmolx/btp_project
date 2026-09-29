@@ -18,13 +18,35 @@ or step by step (same order as the MATLAB MANIFEST):
 
 ```bash
 python -m evbtp ev-model               # EV fleet summary + plot
-python -m evbtp calibrate              # RUN FIRST: normalisation bases + Markov weights
+python -m evbtp calibrate              # RUN FIRST: normalisation bases + objective weights
 python -m evbtp optimize gapso         # also: hoa, mpa   (--seed N, --max-iter 200, --pop-size 50)
 python -m evbtp compare                # single-run 3-way table + plots
 python -m evbtp fair-compare --runs 30 # equal-NOFE, multi-seed comparison  <- the number to report
 python -m evbtp base-case              # improvement vs no-RES/no-EV base case + voltage profile
 python -m evbtp loss-priority          # balanced vs loss-priority scenario
+python -m evbtp weights                # weights of every weighting method + AHP consistency ratio
+python -m evbtp robustness             # MPA per weight set x 5 seeds (--budget 20000, --seeds 5)
 ```
+
+## Objective weights
+
+`calibrate` computes every weighting method from the same 1,000 samples (`evbtp/weights.py`) and copies
+the one named by `WEIGHT_METHOD` in `evbtp/config.py` into `w_fixed`, which the optimizers use:
+
+| method | definition |
+|---|---|
+| `ahp_critic` **(default)** | `w_AHP * w_CRITIC`, normalised |
+| `ahp` | principal eigenvector of `AHP_MATRIX` (Saaty 1-9); errors if CR >= 0.10 |
+| `critic` | CRITIC (Diakoulaki et al., 1995) on F1..F4 |
+| `critic_f4fixed` | CRITIC on F1..F3, F4 fixed at 0.05 |
+| `markov` | Markov-chain weights on F1..F3, F4 fixed at 0.05 (the original method) |
+| `combined` | normalised mean of `markov` and `critic` |
+| `base_paper` | `BASE_PAPER_W` = [0.4, 0.3, 0.2, 0.1], the 2017 base paper |
+| `equal` | 0.25 each |
+
+`AHP_MATRIX` is a **placeholder** until the pairwise judgements are confirmed by the guide.
+The MATLAB versions are `ahp_weights.m`, `critic_weights.m`, `SCENARIO_SETTINGS_INDIA.m`,
+`compare_weighting_methods_INDIA.m`, `run_mpa_once_INDIA.m` and `weight_robustness_INDIA.m`.
 
 Global flags go **before** the command: `--system 33|69`, `--results-dir DIR`, `--no-plots`, `--show`,
 `--ev-source matlab|generate`, `--ev-seed N`.
@@ -51,6 +73,8 @@ the MATLAB "run `clear functions`" caveat is gone (the cache is just the `Proble
 | `run_loadflow_india` (BIBC backward/forward sweep) | `evbtp/loadflow.py` — vectorised over the 24 h |
 | `objective_function_INDIA` + `_detailed_INDIA` + `repair_solution_INDIA` | `evbtp/problem.py` (`Problem.objective / .detailed / .repair_solution`) — **one** implementation instead of two synced copies |
 | `markov_weights`, `calibrate_and_weights_INDIA` | `evbtp/markov.py`, `evbtp/calibrate.py` |
+| `ahp_weights`, `critic_weights`, `SCENARIO_SETTINGS_INDIA`, `compare_weighting_methods_INDIA` | `evbtp/weights.py`, `evbtp/config.py`, `evbtp/robustness.py` (`weights` command) |
+| `run_mpa_once_INDIA`, `weight_robustness_INDIA` | `evbtp/robustness.py` (`robustness` command) |
 | `GAPSO_/HOA_/MPA_INDIA_optimizer` **and** the three copies inside `fair_compare_…` | `evbtp/optimizers/{gapso,hoa,mpa}.py` — each algorithm exists once and runs in fixed-iteration mode (`max_iter=200`) or NOFE-budget mode (`nofe_budget=…`) |
 | `fair_compare_GAPSO_HOA_MPA_INDIA` | `evbtp/fair_compare.py` |
 | `compare_ALL_INDIA`, `compare_GAPSO_MPA_INDIA` | `evbtp/reports.py` (`compare_GAPSO_MPA` is a subset of `compare_ALL`, so it is not ported separately) |

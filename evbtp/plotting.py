@@ -108,6 +108,19 @@ def plot_profiles(prof, out=None):
     return _save(fig, out)
 
 
+def plot_robustness_F1(summary, max_bus, nofe, n_seeds, out=None):
+    """Bar chart of mean F1 (+/- std over seeds) per weight set."""
+    names = list(summary)
+    m = np.array([summary[n]["F1"][0] for n in names]); s = np.array([summary[n]["F1"][1] for n in names])
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.bar(range(len(names)), m, yerr=s, capsize=4, color=(0.0, 0.5, 0.8))
+    ax.set_xticks(range(len(names)), names)
+    ax.set(ylabel="F1 power loss (MWh/day), mean ± std", ylim=(0.95 * m.min(), 1.03 * m.max()),
+           title=f"Weight robustness -- IEEE {max_bus}-bus, MPA {nofe} NOFE x {n_seeds} seeds")
+    ax.grid(alpha=.3, axis="y")
+    return _save(fig, out)
+
+
 def plot_voltage_profiles(scen, out=None):
     """scen: list of (label, Vprofile, style dict)."""
     fig, ax = plt.subplots(figsize=(9, 5.2))
