@@ -126,6 +126,33 @@ def cmd_loss(a):
     run_loss_priority(_problem(a), a.results_dir)
 
 
+def cmd_weights(a):
+    from .robustness import weights_table
+    _need_calibration(a)
+    pr = _problem(a, quiet=True)
+    if not pr.calibration.w_all:
+        raise SystemExit("This calibration predates w_all -- re-run `python -m evbtp calibrate`.")
+    print(weights_table(pr.calibration, pr.max_bus))
+
+
+def cmd_robustness(a):
+    import json
+    from .robustness import weight_robustness
+    from .results_io import dump_json
+    from . import plotting
+    _need_calibration(a)
+    pr = _problem(a, quiet=True)
+    res = weight_robustness(pr, seeds=tuple(range(1, a.seeds + 1)), nofe_budget=a.budget)
+    p = Path(a.results_dir) / "weight_robustness_INDIA.json"          # both feeders side by side
+    allres = json.loads(p.read_text()) if p.exists() else {}
+    allres[f"bus{pr.system_id}"] = res
+    dump_json(allres, p); print(f"\nSaved to {p} (key bus{pr.system_id})")
+    if not a.no_plots:
+        out = Path(a.results_dir) / "figures" / f"weight_robustness_F1_{pr.system_id}bus.png"
+        _fig(a, plotting.plot_robustness_F1(res["summary"], pr.max_bus, res["nofe"], len(res["seeds"]), out), "wr")
+        print(f"Saved {out}")
+
+
 def cmd_all(a):
     cmd_ev_model(a); cmd_calibrate(a)
     for k in ("gapso", "hoa", "mpa"):
@@ -146,7 +173,7 @@ def build_parser():
 
     s = sub.add_parser("ev-model", help="EV fleet summary + plots"); s.add_argument("--regenerate", action="store_true"); s.set_defaults(f=cmd_ev_model)
     s = sub.add_parser("profiles", help="plot the 24-h profiles"); s.set_defaults(f=cmd_profiles)
-    s = sub.add_parser("calibrate", help="normalisation bases + Markov weights (run first)")
+    s = sub.add_parser("calibrate", help="normalisation bases + objective weights (run first)")
     s.add_argument("--samples", type=int, default=1000); s.add_argument("--seed", type=int); s.set_defaults(f=cmd_calibrate)
     s = sub.add_parser("optimize", help="run one optimizer once")
     s.add_argument("algo", choices=("gapso", "hoa", "mpa")); s.add_argument("--seed", type=int)
@@ -156,6 +183,10 @@ def build_parser():
     s.add_argument("--budget", type=int, default=20000); s.add_argument("--runs", type=int, default=30); s.set_defaults(f=cmd_fair)
     s = sub.add_parser("base-case", help="improvement vs base case + voltage profile"); s.set_defaults(f=cmd_base)
     s = sub.add_parser("loss-priority", help="balanced vs loss-priority scenario"); s.set_defaults(f=cmd_loss)
+    s = sub.add_parser("weights", help="weights of every weighting method + AHP consistency"); s.set_defaults(f=cmd_weights)
+    s = sub.add_parser("robustness", help="weight-robustness study (MPA per weight set x seeds)")
+    s.add_argument("--budget", type=int, default=config.ROBUST_NOFE); s.add_argument("--seeds", type=int, default=len(config.ROBUST_SEEDS))
+    s.set_defaults(f=cmd_robustness)
     s = sub.add_parser("all", help="whole pipeline"); s.add_argument("--samples", type=int, default=1000)
     s.add_argument("--seed", type=int); s.add_argument("--max-iter", type=int, default=200); s.add_argument("--pop-size", type=int, default=50)
     s.add_argument("--budget", type=int, default=20000); s.add_argument("--runs", type=int, default=30); s.add_argument("--regenerate", action="store_true"); s.set_defaults(f=cmd_all)
