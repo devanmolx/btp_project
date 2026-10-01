@@ -51,17 +51,31 @@ class Calibration:
     F2_vals: np.ndarray = None
     F3_vals: np.ndarray = None
     F4_vals: np.ndarray = None
+    weight_method: str = "markov"      # which entry of w_all is w_fixed (files from before w_all were Markov)
+    w_all: dict = None                 # every weighting method, name -> (4,) weights
+    ahp_info: dict = None              # lambda_max, CI, CR, RI, w_gm
 
     def save(self, path):
-        np.savez(path, **{k: (np.asarray(v) if v is not None else np.array([])) for k, v in self.__dict__.items()})
+        d = {k: (np.asarray(v) if v is not None else np.array([])) for k, v in self.__dict__.items()
+             if k not in ("w_all", "ahp_info")}
+        for k, v in (self.w_all or {}).items():
+            d[f"w_all__{k}"] = np.asarray(v)
+        for k, v in (self.ahp_info or {}).items():
+            d[f"ahp__{k}"] = np.asarray(v)
+        np.savez(path, **d)
 
     @classmethod
     def load(cls, path):
         d = np.load(path)
-        kw = {k: d[k] for k in d.files}
+        kw = {k: d[k] for k in d.files if "__" not in k}
         for k in ("F1_lo F1_hi F2_lo F2_hi F3_lo F3_hi F4_lo F4_hi".split()):
             kw[k] = float(kw[k])
         kw["n_samples"] = int(kw["n_samples"])
+        if "weight_method" in kw:
+            kw["weight_method"] = str(kw["weight_method"])
+        kw["w_all"] = {k[len("w_all__"):]: d[k] for k in d.files if k.startswith("w_all__")} or None
+        info = {k[len("ahp__"):]: d[k] for k in d.files if k.startswith("ahp__")}
+        kw["ahp_info"] = {k: (v if v.ndim else float(v)) for k, v in info.items()} or None
         return cls(**kw)
 
     def bases(self):

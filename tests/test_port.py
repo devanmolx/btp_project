@@ -130,3 +130,58 @@ def test_standalone_mode_runs_fixed_iterations():
     pr = Problem(quiet=True)
     r = run_mpa(pr, max_iter=5, seed=1, verbose=False)
     assert len(r.convergence) == 5 and r.NOFE == 50 + 5 * 100
+
+
+# ---- weighting methods (ahp_weights.m / critic_weights.m) ----
+from evbtp.weights import AHPInconsistentError, ahp_weights, critic_weights, compute_all
+
+
+def test_ahp_default_matrix_is_consistent_and_normalised():
+    w, info = ahp_weights(config.AHP_MATRIX, verbose=False)
+    assert w.sum() == pytest.approx(1.0) and info.w_gm.sum() == pytest.approx(1.0)
+    assert info.RI == 0.90 and info.CR < 0.10
+    assert info.CI == pytest.approx((info.lambda_max - 4) / 3)
+    assert np.argmax(w) == 0                                      # F1 (loss) is judged most important
+
+
+def test_ahp_consistent_matrix_recovers_its_weights():
+    v = np.array([0.4, 0.3, 0.2, 0.1])
+    w, info = ahp_weights(v[:, None] / v[None, :], verbose=False)
+    assert np.allclose(w, v) and np.allclose(info.w_gm, v) and abs(info.CR) < 1e-9
+
+
+def test_ahp_rejects_invalid_and_inconsistent_matrices():
+    A = np.array(config.AHP_MATRIX, float)
+    bad = A.copy(); bad[0, 1] = 3                                  # breaks reciprocity
+    with pytest.raises(ValueError, match="reciprocal"):
+        ahp_weights(bad, verbose=False)
+    diag = A.copy(); diag[2, 2] = 2
+    with pytest.raises(ValueError, match="diagonal"):
+        ahp_weights(diag, verbose=False)
+    incons = np.array([[1, 9, 1/9, 1], [1/9, 1, 9, 1], [9, 1/9, 1, 1], [1, 1, 1, 1]], float)
+    with pytest.raises(AHPInconsistentError):
+        ahp_weights(incons, verbose=False)
+
+
+def test_critic_rewards_contrast_and_conflict():
+    rng = np.random.default_rng(3)
+    a = rng.random(500)
+    F = np.column_stack([a, a + 1e-3 * rng.random(500), rng.random(500), 0.01 * rng.random(500) + a])
+    w = critic_weights(F)
+    assert w.sum() == pytest.approx(1.0) and np.argmax(w) == 2    # independent column wins
+    assert critic_weights(np.column_stack([a, np.ones(500)]))[1] == 0   # constant column -> zero weight
+
+
+def test_compute_all_methods():
+    rng = np.random.default_rng(0)
+    F = rng.random((300, 4))
+    lo, hi = np.percentile(F, 5, axis=0), np.percentile(F, 95, axis=0)
+    w_all, _ = compute_all(F, lo, hi, verbose=False, base_paper_w=[3, 3, 3, 1])
+    assert set(w_all) == {"ahp_critic", "ahp", "critic", "critic_f4fixed", "markov", "combined", "equal", "base_paper"}
+    for w in w_all.values():
+        assert w.shape == (4,) and w.sum() == pytest.approx(1.0) and (w >= 0).all()
+    assert w_all["markov"][3] == w_all["critic_f4fixed"][3] == config.ALPHA_FIXED
+    p = w_all["ahp"] * w_all["critic"]
+    assert np.allclose(w_all["ahp_critic"], p / p.sum())
+    assert np.allclose(w_all["base_paper"], [0.3, 0.3, 0.3, 0.1])
+    assert np.allclose(compute_all(F, lo, hi, verbose=False)[0]["base_paper"], [0.4, 0.3, 0.2, 0.1])   # config default
